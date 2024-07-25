@@ -2,6 +2,27 @@
 
 require_once "vendor/autoload.php";
 
+$router = new Router();
+
+if($router->isApiCall()) {
+    if($_SERVER['REQUEST_METHOD'] == 'GET') {
+        if($router->getResourceId()) {
+            echo 'Task '. $router->getResourceId();
+            return;
+        }
+        echo 'all tasks';
+        return;
+    }
+    if($_SERVER['REQUEST_METHOD'] == 'POST') {
+        echo 'Add new resource1';
+    }
+    if($_SERVER['REQUEST_METHOD'] == 'PATCH') {
+        echo 'Resource id '. $router->getResourceId();
+    }
+}
+
+
+
 date_default_timezone_set('Asia/Tashkent');
 
 $update = json_decode(file_get_contents('php://input'));
@@ -11,6 +32,7 @@ if (isset($update)) {
     return;
 }
 
+$task = new Task();
 if (count($_GET) > 0 || count($_POST) > 0) {
     $task = new Task();
 
@@ -31,4 +53,5 @@ if (count($_GET) > 0 || count($_POST) > 0) {
     }
 }
 
+require 'API.php';
 require 'view/home.php';

@@ -11,6 +11,7 @@ class Bot
     public Client $http;
     private PDO   $pdo;
 
+
     public function __construct()
     {
         $this->http = new Client(['base_uri' => self::API]);
