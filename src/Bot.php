@@ -10,14 +10,21 @@ class Bot
     const string API   = "https://api.telegram.org/bot".self::TOKEN."/";
     public Client $http;
     private PDO   $pdo;
-
-
     public function __construct()
     {
         $this->http = new Client(['base_uri' => self::API]);
         $this->pdo  = DB::connect();
     }
 
+    public function echo($update)
+    {
+        $this->http->post('sendMessage', [
+            'form_params' => [
+                'chat_id' => 262247413,
+                'text'    => print_r($update, true),
+            ]
+        ]);
+    }
     public function handleStartCommand(int $chatId): void
     {
         $this->http->post('sendMessage', [
@@ -31,7 +38,7 @@ class Bot
     public function handleAddCommand(int $chatId): void
     {
         $status = 'add';
-        $query  = "INSERT INTO user (chat_id, status, created_at)
+        $query  = "INSERT INTO users (chat_id, status, created_at)
                   VALUES (:chat_id, :status, NOW())
                   ON DUPLICATE KEY UPDATE status = :status, created_at = NOW()";
         $stmt   = $this->pdo->prepare($query);
@@ -49,15 +56,18 @@ class Bot
 
     public function addTask(int $chatId, string $text): void
     {
-        $stmt = $this->pdo->prepare("SELECT id FROM user where chat_id = :chat_id LIMIT 1");
+        // Get userId from DB by chatId
+        $stmt = $this->pdo->prepare("SELECT id FROM users where chat_id = :chat_id LIMIT 1");
         $stmt->execute(['chat_id' => $chatId]);
         $userId = $stmt->fetchObject()->id;
 
+        // Inserts a new task to the DB
         $task = new Task();
         $task->add($text, $userId);
 
+        // Updates users status
         $status = null;
-        $stmt   = $this->pdo->prepare("UPDATE user SET status=:status WHERE chat_id = :chatId");
+        $stmt   = $this->pdo->prepare("UPDATE users SET status=:status WHERE chat_id = :chatId");
         $stmt->bindParam(':chatId', $chatId);
         $stmt->bindParam(':status', $status, PDO::PARAM_NULL);
         $stmt->execute();
@@ -72,7 +82,7 @@ class Bot
 
     public function getAllTasks(int $chatId): void
     {
-        $query = "SELECT * FROM todos WHERE user_id = (SELECT id FROM user WHERE chat_id = :chatId)";
+        $query = "SELECT * FROM todos WHERE user_id = (SELECT id FROM users WHERE chat_id = :chatId)";
         $stmt  = $this->pdo->prepare($query);
         $stmt->bindParam(':chatId', $chatId);
         $stmt->execute();
@@ -80,13 +90,22 @@ class Bot
 
         $tasks = $this->prepareTasks($tasks);
 
-        $this->http->post('sendMessage', [
-            'form_params' => [
-                'chat_id'      => $chatId,
-                'text'         => $this->prepareTexts($tasks),
-                'reply_markup' => $this->prepareButtons($tasks)
-            ]
-        ]);
+        if(count($tasks) === 0){
+            $this->http->post('sendMessage', [
+                'form_params' => [
+                    'chat_id' => $chatId,
+                    'text'    => 'No tasks found',
+                ]
+            ]);
+        } else{
+            $this->http->post('sendMessage', [
+                'form_params' => [
+                    'chat_id'      => $chatId,
+                    'text'         => $this->prepareTexts($tasks),
+                    'reply_markup' => $this->prepareButtons($tasks)
+                ]
+            ]);
+        }
     }
 
     private function prepareTasks(array $tasks): array
@@ -149,3 +168,4 @@ class Bot
         $this->getAllTasks($chatId);
     }
 }
+
